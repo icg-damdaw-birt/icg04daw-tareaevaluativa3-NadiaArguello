@@ -83,7 +83,62 @@ export const moviesStore = {
     }
   },
 
-  // Limpiar estado completo
+  // Toggle favorito para una película (marca/desmarca)
+  async toggleFavorite(id: string): Promise<boolean> {
+    mutating = true;
+    error = null;
+    try {
+      const updatedMovie = await api.toggleFavorite(id);
+      movies = movies.map(m => m.id === id ? updatedMovie : m);
+      return true;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Error al actualizar favorito';
+      return false;
+    } finally {
+      mutating = false;
+    }
+  },
+
+  // ⭐ NUEVO: Actualizar rating
+  async rateMovie(movie: Movie, rating: number): Promise<boolean> {
+  // Validación
+    if (rating < 0 || rating > 5) {
+      error = 'El rating debe estar entre 0 y 5';
+      return false;
+    }
+
+    const previousRating = movie.rating;
+
+    mutating = true;
+    error = null;
+
+    try {
+      // Optimistic update
+      movie.rating = rating;
+
+      const updatedMovie = await api.rateMovie(movie.id, rating);
+
+      // Sincronizar con backend
+      movies = movies.map(m =>
+        m.id === movie.id ? updatedMovie : m
+      );
+
+      return true;
+    } catch (err) {
+      // Rollback
+      movie.rating = previousRating;
+
+      error = err instanceof Error
+        ? err.message
+        : 'Error al actualizar rating';
+
+      return false;
+    } finally {
+      mutating = false;
+    }
+  },
+
+  // Limpiar estado
   reset() {
     movies = [];
     loading = false;
@@ -91,8 +146,8 @@ export const moviesStore = {
     error = null;
   },
 
-  // Limpiar solo el error
   clearError() {
     error = null;
   }
 };
+

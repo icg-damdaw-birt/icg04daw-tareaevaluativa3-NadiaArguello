@@ -289,6 +289,88 @@ describe('API Service - Autenticación', () => {
       }
     });
   });
+
+  // ==========================================
+  // GRUPO: Favoritos
+  // ==========================================
+  describe('Favoritos', () => {
+    it('debería marcar película como favorita (toggle)', async () => {
+      // ARRANGE
+      const movieId = 'movie-1';
+      const token = 'valid-token';
+      authToken.set(token);
+
+      const mockMovie = { id: movieId, title: 'Inception', director: 'Nolan', isFavorite: true };
+
+      (globalThis.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name: string) => name === 'content-type' ? 'application/json' : null
+        },
+        json: async () => mockMovie
+      });
+
+      // ACT
+      const response = await api.toggleFavorite(movieId);
+
+      // ASSERT
+      expect(response.isFavorite).toBe(true);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      
+      const callArgs = (globalThis.fetch as any).mock.calls[0];
+      expect(callArgs[0]).toBe(`http://localhost:3000/api/movies/${movieId}/favorite`);
+      expect(callArgs[1].method).toBe('PATCH');
+      expect(callArgs[1].headers.get('Authorization')).toBe(`Bearer ${token}`);
+    });
+
+    it('debería fallar si película no existe (404)', async () => {
+      // ARRANGE
+      authToken.set('valid-token');
+
+      (globalThis.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        headers: {
+          get: (name: string) => name === 'content-type' ? 'application/json' : null
+        },
+        json: async () => ({ error: 'Película no encontrada' })
+      });
+
+      // ACT & ASSERT
+      try {
+        await api.toggleFavorite('invalid-id');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).status).toBe(404);
+        expect((error as ApiError).message).toBe('Película no encontrada');
+      }
+    });
+
+    it('debería fallar si no hay autenticación (401)', async () => {
+      // ARRANGE
+      authToken.clear();
+
+      (globalThis.fetch as any).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: {
+          get: (name: string) => name === 'content-type' ? 'application/json' : null
+        },
+        json: async () => ({ error: 'No autorizado' })
+      });
+
+      // ACT & ASSERT
+      try {
+        await api.toggleFavorite('movie-1');
+        expect(true).toBe(false);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).status).toBe(401);
+      }
+    });
+  });
 });
 
 /**

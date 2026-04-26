@@ -6,12 +6,16 @@
     movie,
     showActions = true,
     ondelete,
-    onedit
+    onedit,
+    onfavorite,
+    onrate // ⭐ NUEVO
   }: {
     movie: Movie;
     showActions?: boolean;
     ondelete?: (id: string) => void;
     onedit?: (movie: Movie) => void;
+    onfavorite?: (id: string) => void;
+    onrate?: (movie: Movie, rating: number) => void; // ⭐ NUEVO
   } = $props();
 
   // Handlers: ejecutan callbacks del padre directamente
@@ -21,6 +25,15 @@
 
   function handleEdit() {
     onedit?.(movie);
+  }
+
+  async function handleFavorite() {
+    await onfavorite?.(movie.id);
+  }
+
+  // ⭐ NUEVO: Handler para rating
+  function handleRate(rating: number) {
+    onrate?.(movie, rating);
   }
 </script>
 
@@ -49,8 +62,30 @@
       {/if}
     </div>
 
+    <!-- ⭐ NUEVO: Sistema de rating -->
+    <div class="flex items-center gap-1 text-xl mt-2">
+      {#each [1, 2, 3, 4, 5] as star}
+        <button
+          type="button"
+          class="transition hover:scale-110"
+          title={`Puntuar con ${star}`}
+          onclick={() => handleRate(star)}
+        >
+          {star <= (movie.rating ?? 0) ? '⭐' : '☆'}
+        </button>
+      {/each}
+    </div>
+
     {#if showActions}
       <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          title={movie.isFavorite ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+          class="px-3 py-2 text-2xl transition {movie.isFavorite ? 'text-yellow-500 hover:text-yellow-600' : 'text-slate-300 hover:text-slate-400'}"
+          onclick={handleFavorite}
+        >
+          ★
+        </button>
         <button
           type="button"
           class="w-full rounded border border-slate-300 px-3 py-2 text-slate-700 transition hover:bg-slate-50"

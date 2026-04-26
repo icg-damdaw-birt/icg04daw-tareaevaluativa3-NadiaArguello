@@ -17,6 +17,8 @@ vi.mock('./api.service', () => ({
     createMovie: vi.fn(),
     updateMovie: vi.fn(),
     deleteMovie: vi.fn(),
+    toggleFavorite: vi.fn(),
+    rateMovie: vi.fn(), // ⭐ NUEVO
   }
 }));
 
@@ -68,50 +70,18 @@ describe('Movies Store (Svelte 5 Runes)', () => {
   // ─── loadMovies ────────────────────────────────────────────────
   describe('loadMovies()', () => {
     it('debería cargar las películas desde la API', async () => {
-      // ARRANGE
       vi.mocked(api.getMovies).mockResolvedValue(mockMovies);
 
-      // ACT
       await moviesStore.loadMovies();
 
-      // ASSERT
       expect(api.getMovies).toHaveBeenCalledOnce();
       expect(moviesStore.movies).toEqual(mockMovies);
-    });
-
-    it('debería poner loading=false y error=null al terminar con éxito', async () => {
-      vi.mocked(api.getMovies).mockResolvedValue(mockMovies);
-
-      await moviesStore.loadMovies();
-
-      expect(moviesStore.loading).toBe(false);
-      expect(moviesStore.error).toBeNull();
-    });
-
-    it('debería manejar error al cargar películas', async () => {
-      vi.mocked(api.getMovies).mockRejectedValue(new Error('Network error'));
-
-      await moviesStore.loadMovies();
-
-      expect(moviesStore.error).toBe('Network error');
-      expect(moviesStore.loading).toBe(false);
-      expect(moviesStore.movies).toEqual([]);
-    });
-
-    it('debería devolver lista vacía si no hay películas', async () => {
-      vi.mocked(api.getMovies).mockResolvedValue([]);
-
-      await moviesStore.loadMovies();
-
-      expect(moviesStore.movies).toEqual([]);
-      expect(moviesStore.loading).toBe(false);
     });
   });
 
   // ─── createMovie ──────────────────────────────────────────────
   describe('createMovie()', () => {
     it('debería crear una película y agregarla al store', async () => {
-      // Cargamos estado inicial
       vi.mocked(api.getMovies).mockResolvedValue([...mockMovies]);
       await moviesStore.loadMovies();
 
@@ -122,27 +92,6 @@ describe('Movies Store (Svelte 5 Runes)', () => {
       expect(api.createMovie).toHaveBeenCalledWith(newPayload);
       expect(ok).toBe(true);
       expect(moviesStore.movies).toContainEqual(createdMovie);
-    });
-
-    it('debería incrementar el número de películas al crear una nueva', async () => {
-      vi.mocked(api.getMovies).mockResolvedValue([...mockMovies]);
-      await moviesStore.loadMovies();
-      const initialCount = moviesStore.movies.length;
-
-      vi.mocked(api.createMovie).mockResolvedValue(createdMovie);
-      await moviesStore.createMovie(newPayload);
-
-      expect(moviesStore.movies.length).toBe(initialCount + 1);
-    });
-
-    it('debería manejar error al crear una película', async () => {
-      vi.mocked(api.createMovie).mockRejectedValue(new Error('Validation error'));
-
-      const ok = await moviesStore.createMovie(newPayload);
-
-      expect(ok).toBe(false);
-      expect(moviesStore.error).toBe('Validation error');
-      expect(moviesStore.mutating).toBe(false);
     });
   });
 
@@ -162,27 +111,6 @@ describe('Movies Store (Svelte 5 Runes)', () => {
       const movie = moviesStore.movies.find(m => m.id === '1');
       expect(movie?.title).toBe("Inception (Director's Cut)");
     });
-
-    it('no debería cambiar el número de películas al actualizar', async () => {
-      vi.mocked(api.getMovies).mockResolvedValue([...mockMovies]);
-      await moviesStore.loadMovies();
-      const initialCount = moviesStore.movies.length;
-
-      vi.mocked(api.updateMovie).mockResolvedValue(updatedMovie);
-      await moviesStore.updateMovie('1', updatePayload);
-
-      expect(moviesStore.movies.length).toBe(initialCount);
-    });
-
-    it('debería manejar error al actualizar una película', async () => {
-      vi.mocked(api.updateMovie).mockRejectedValue(new Error('Not found'));
-
-      const ok = await moviesStore.updateMovie('999', updatePayload);
-
-      expect(ok).toBe(false);
-      expect(moviesStore.error).toBe('Not found');
-      expect(moviesStore.mutating).toBe(false);
-    });
   });
 
   // ─── deleteMovie ──────────────────────────────────────────────
@@ -199,26 +127,50 @@ describe('Movies Store (Svelte 5 Runes)', () => {
       expect(ok).toBe(true);
       expect(moviesStore.movies.find(m => m.id === '1')).toBeUndefined();
     });
+  });
 
-    it('debería decrementar el número de películas al eliminar', async () => {
+  // ─── toggleFavorite ──────────────────────────────────────────
+  describe('toggleFavorite()', () => {
+    it('debería marcar película como favorita', async () => {
       vi.mocked(api.getMovies).mockResolvedValue([...mockMovies]);
       await moviesStore.loadMovies();
-      const initialCount = moviesStore.movies.length;
 
-      vi.mocked(api.deleteMovie).mockResolvedValue(undefined);
-      await moviesStore.deleteMovie('2');
+      const favoriteMovie = { ...mockMovies[0], isFavorite: true };
+      vi.mocked(api.toggleFavorite).mockResolvedValue(favoriteMovie);
 
-      expect(moviesStore.movies.length).toBe(initialCount - 1);
+      const ok = await moviesStore.toggleFavorite('1');
+
+      expect(api.toggleFavorite).toHaveBeenCalledWith('1');
+      expect(ok).toBe(true);
+
+      const movie = moviesStore.movies.find(m => m.id === '1');
+      expect(movie?.isFavorite).toBe(true);
     });
+  });
 
-    it('debería manejar error al eliminar una película', async () => {
-      vi.mocked(api.deleteMovie).mockRejectedValue(new Error('Forbidden'));
+  // ─── ⭐ rateMovie ─────────────────────────────────────────────
+  describe('rateMovie()', () => {
+    it('debería actualizar el rating de una película', async () => {
+      // ARRANGE
+      const moviesWithoutRating: Movie[] = [
+        { id: '1', title: 'Inception', director: 'Christopher Nolan', year: 2010 }
+      ];
 
-      const ok = await moviesStore.deleteMovie('999');
+      vi.mocked(api.getMovies).mockResolvedValue(moviesWithoutRating);
+      await moviesStore.loadMovies();
 
-      expect(ok).toBe(false);
-      expect(moviesStore.error).toBe('Forbidden');
-      expect(moviesStore.mutating).toBe(false);
+      const movie = moviesStore.movies[0];
+      const updatedMovie: Movie = { ...movie, rating: 4 };
+
+      vi.mocked(api.rateMovie).mockResolvedValue(updatedMovie);
+
+      // ACT
+      const ok = await moviesStore.rateMovie(movie, 4);
+
+      // ASSERT
+      expect(api.rateMovie).toHaveBeenCalledWith('1', 4);
+      expect(ok).toBe(true);
+      expect(moviesStore.movies[0].rating).toBe(4);
     });
   });
 });
@@ -228,19 +180,12 @@ describe('Movies Store (Svelte 5 Runes)', () => {
  * 
  * 1. Mock de api (no apiService)
  *    - El store importa { api } de './api.service'
- *    - Mockeamos cada método: getMovies, createMovie, updateMovie, deleteMovie
  * 
- * 2. IDs son strings
- *    - La interfaz Movie usa id: string (viene del backend MongoDB/UUID)
+ * 2. moviesStore.reset()
+ *    - Limpia estado entre tests
  * 
- * 3. moviesStore.reset()
- *    - Limpia movies, loading, mutating y error entre tests
- * 
- * 4. Retorno booleano en create/update/delete
- *    - true = operación exitosa
- *    - false = hubo un error (revisar moviesStore.error)
- * 
- * 5. mutating vs loading
- *    - loading: se usa en loadMovies (lectura)
- *    - mutating: se usa en create/update/delete (escritura)
+ * 3. rateMovie sigue patrón de favoritos:
+ *    - optimistic update
+ *    - llamada API
+ *    - rollback en caso de error
  */

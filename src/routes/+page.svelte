@@ -75,6 +75,32 @@
     }
   }
 
+  // Toggle favorito para una película
+  async function handleFavorite(id: string) {
+    feedbackMessage = null;
+    moviesStore.clearError();
+
+    const ok = await moviesStore.toggleFavorite(id);
+    if (!ok) {
+      feedbackMessage = { type: 'error', text: moviesStore.error ?? 'Error al actualizar favorito.' };
+    }
+  }
+
+  // ⭐ NUEVO: Manejo del rating
+  async function handleRate(movie: Movie, rating: number) {
+    feedbackMessage = null;
+    moviesStore.clearError();
+
+    const ok = await moviesStore.rateMovie(movie, rating);
+
+    if (!ok) {
+      feedbackMessage = {
+        type: 'error',
+        text: moviesStore.error ?? 'Error al actualizar rating.'
+      };
+    }
+  }
+
   // Abre el modo edición con los datos de la tarjeta seleccionada.
   function handleEdit(movie: Movie) {
     editingMovie = movie;
@@ -119,7 +145,13 @@
       {:else}
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {#each moviesStore.movies as movie (movie.id)}
-            <MovieCard {movie} ondelete={handleDelete} onedit={handleEdit} />
+            <MovieCard
+              {movie}
+              ondelete={handleDelete}
+              onedit={handleEdit}
+              onfavorite={handleFavorite}
+              onrate={handleRate} 
+            />
           {/each}
         </div>
       {/if}

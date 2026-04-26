@@ -20,7 +20,6 @@ interface RequestOptions {
 }
 
 // Excepción personalizada para errores de API
-// Distingue errores de red vs errores de lógica de negocio
 export class ApiError extends Error {
   status?: number;
   details?: unknown;
@@ -33,35 +32,31 @@ export class ApiError extends Error {
   }
 }
 
-// URL base: configurada desde variables de entorno con fallback
+// URL base
 function sanitizeBaseUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) {
     return FALLBACK_API_URL;
   }
-  // Elimina barras finales para evitar URLs malformadas
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 
-// ✅ Configuración para SvelteKit: usa PUBLIC_ prefix
+// Configuración SvelteKit
 const API_BASE_URL = sanitizeBaseUrl(
   import.meta.env.PUBLIC_API_URL ?? FALLBACK_API_URL
 );
 
-// Función central: wrapper genérico para todas las peticiones HTTP
-// Añade headers, autenticación y manejo de errores homogéneo
+// Wrapper HTTP
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = true } = options;
   const headers = new Headers();
 
-  // Content-Type automático para peticiones con body
   if (body !== undefined) {
     headers.set('Content-Type', 'application/json');
   }
 
-  // Autenticación JWT automática (excepto login/register)
   if (auth) {
-    const token = authToken.value; // Svelte 5: acceso directo al valor
+    const token = authToken.value;
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
@@ -98,7 +93,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!response.ok) {
     const errorPayload = (payload ?? {}) as ApiErrorPayload;
     const serverMessage =
-      typeof errorPayload === 'object' ? errorPayload.error ?? errorPayload.message : undefined;
+      typeof errorPayload === 'object'
+        ? errorPayload.error ?? errorPayload.message
+        : undefined;
+
     throw new ApiError(serverMessage ?? 'Ocurrió un error inesperado.', {
       status: response.status,
       details: payload,
@@ -108,24 +106,52 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
+// API pública
 export const api = {
-  // Inicia sesión y obtiene el token JWT emitido por el backend.
   login: (credentials: Credentials) =>
-    request<LoginResponse>('/api/auth/login', { method: 'POST', body: credentials, auth: false }),
-  // Crea un nuevo usuario y reutiliza la misma validación que la app móvil.
-  register: (payload: RegisterPayload) =>
-    request<void>('/api/auth/register', { method: 'POST', body: payload, auth: false }),
-  // Recupera las películas protegidas por token.
-  getMovies: () => request<Movie[]>('/api/movies'),
-  // Crea una película asociada al usuario conectado.
-  createMovie: (payload: MoviePayload) =>
-    request<Movie>('/api/movies', { method: 'POST', body: payload }),
-  // Actualiza la película seleccionada desde la vista de edición.
-  updateMovie: (id: string, payload: MoviePayload) =>
-    request<Movie>(`/api/movies/${id}`, { method: 'PUT', body: payload }),
-  // Elimina la película de la base de datos y de la lista local.
-  deleteMovie: (id: string) => request<void>(`/api/movies/${id}`, { method: 'DELETE' }),
+    request<LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      body: credentials,
+      auth: false
+    }),
 
-  // TODO (UD4 - Video): toggleFavorite
-  // TODO (UD4 - Ejercicio): rateMovie
+  register: (payload: RegisterPayload) =>
+    request<void>('/api/auth/register', {
+      method: 'POST',
+      body: payload,
+      auth: false
+    }),
+
+  getMovies: () =>
+    request<Movie[]>('/api/movies'),
+
+  createMovie: (payload: MoviePayload) =>
+    request<Movie>('/api/movies', {
+      method: 'POST',
+      body: payload
+    }),
+
+  updateMovie: (id: string, payload: MoviePayload) =>
+    request<Movie>(`/api/movies/${id}`, {
+      method: 'PUT',
+      body: payload
+    }),
+
+  deleteMovie: (id: string) =>
+    request<void>(`/api/movies/${id}`, {
+      method: 'DELETE'
+    }),
+
+  // Favoritos
+  toggleFavorite: (id: string) =>
+    request<Movie>(`/api/movies/${id}/favorite`, {
+      method: 'PATCH'
+    }),
+
+  // ⭐ Rating (CORREGIDO)
+  rateMovie: (id: string, rating: number) =>
+    request<Movie>(`/api/movies/${id}/rate`, {
+      method: 'PATCH',
+      body: { rating }
+    }),
 };
