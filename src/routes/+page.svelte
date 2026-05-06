@@ -87,11 +87,11 @@
   }
 
   // ⭐ NUEVO: Manejo del rating
-  async function handleRate(movie: Movie, rating: number) {
+  async function handleRate(id: string, rating: number) {
     feedbackMessage = null;
     moviesStore.clearError();
 
-    const ok = await moviesStore.rateMovie(movie, rating);
+    const ok = await moviesStore.rateMovie(id, rating);
 
     if (!ok) {
       feedbackMessage = {

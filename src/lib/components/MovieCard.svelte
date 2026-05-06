@@ -15,7 +15,7 @@
     ondelete?: (id: string) => void;
     onedit?: (movie: Movie) => void;
     onfavorite?: (id: string) => void;
-    onrate?: (movie: Movie, rating: number) => void; // ⭐ NUEVO
+    onrate?: (id: string, rating: number) => void; // ⭐ NUEVO
   } = $props();
 
   // Handlers: ejecutan callbacks del padre directamente
@@ -33,7 +33,7 @@
 
   // ⭐ NUEVO: Handler para rating
   function handleRate(rating: number) {
-    onrate?.(movie, rating);
+    onrate?.(movie.id, rating);
   }
 </script>
 
