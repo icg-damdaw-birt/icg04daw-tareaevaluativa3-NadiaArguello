@@ -159,13 +159,13 @@ describe('Movies Store (Svelte 5 Runes)', () => {
       vi.mocked(api.getMovies).mockResolvedValue(moviesWithoutRating);
       await moviesStore.loadMovies();
 
-      const movie = moviesStore.movies[0];
-      const updatedMovie: Movie = { ...movie, rating: 4 };
+     
+      const updatedMovie: Movie = { ...moviesWithoutRating[0], rating: 4 };
 
       vi.mocked(api.rateMovie).mockResolvedValue(updatedMovie);
 
       // ACT
-      const ok = await moviesStore.rateMovie(movie, 4);
+      const ok = await moviesStore.rateMovie('1', 4);
 
       // ASSERT
       expect(api.rateMovie).toHaveBeenCalledWith('1', 4);
